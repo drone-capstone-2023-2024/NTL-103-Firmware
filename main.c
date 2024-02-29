@@ -578,6 +578,45 @@ void Util_WriteFloat(LFP_Frame_t * frame, int startIndex, float number) {
 	frame->payload[startIndex + 3] = arr[0]; 
 }
 
+typedef struct {
+	uint8_t pending; 
+	uint8_t interval; 
+	uint8_t counter; 
+} PeriodicService_t; 
+
+PeriodicService_t PeriodicService_Init(uint8_t interval) {
+	PeriodicService_t service = {
+		.pending = 0, 
+		.interval = interval, 
+		.counter = 0, 
+	}; 
+	return service; 
+}
+
+void PeriodicService_Force(PeriodicService_t * service) {
+	service->pending = 1; 
+}
+
+void PeriodicService_SetInterval(PeriodicService_t * service, uint8_t interval) {
+	service->interval = interval; 
+	service->counter = interval; // Force update
+}
+
+void PeriodicService_Tick(PeriodicService_t * service) {
+	if(++service->counter >= service->interval) {
+		service->counter = 0; 
+		service->pending = 1; 
+	}
+}
+
+int PeriodicService_Serve(PeriodicService_t * service) {
+	if(service->pending) {
+		service->pending = 0; 
+		return 1; 
+	}
+	return 0; 
+}
+
 int main(void) {
 	SysClock_HWInit(); 
 	IO_HWInit(); 
@@ -596,58 +635,51 @@ int main(void) {
 	
 	uint8_t cntsec = 0; // Second counter
 	
-	// TODO: organize boilerplate code
-	uint8_t cnt1val = 0; // Counter 1 value
-	uint8_t cnt1rl = 2;  // Counter 1 reload
-	uint8_t cnt2val = 0; // Counter 2 value
-	uint8_t cnt2rl = 2;  // Counter 2 reload
-	uint8_t cnt3val = 0; // Counter 3 value
-	uint8_t cnt3rl = 2;  // Counter 3 reload
+	PeriodicService_t powerService = PeriodicService_Init(2); 
+	PeriodicService_t tempService = PeriodicService_Init(2); 
+	PeriodicService_t envService = PeriodicService_Init(2); 
 	
 	while(1) {
-		uint8_t telemetryBitmap = 0; // Env, Temp, Power
 		uint8_t doSampling = 0; 
 		
 		LFP_Frame_t frame; 
-		// Handle frame reception
-		if(LFP_RxAvailable()) {
-			int status = LFP_Rx(&frame); 
-			if(status == LFP_DECODE_OKAY) {
-				// Power telemetry
-				if(frame.service == 0) {
+		
+		// Handle OUT packets
+		if(LFP_RxAvailable() && LFP_Rx(&frame) == LFP_DECODE_OKAY) {
+			switch(frame.service) {
+				case 0: { // Power telemetry
+					// Power telemetry
 					if(frame.length == 0) {
 						// PacketOutPowerRequest
-						telemetryBitmap |= 0x01; 
+						PeriodicService_Force(&powerService); 
 					}
 					if(frame.length == 1) {
 						// PacketOutPowerSetRate
-						cnt1rl = frame.payload[0]; 
-						cnt1val = cnt1rl; 
+						PeriodicService_SetInterval(&powerService, frame.payload[0]); 
 					}
+					break; 
 				}
-				// Temperature telemetry
-				if(frame.service == 1) {
+				case 1: { // Temperature telemetry
 					if(frame.length == 0) {
 						// PacketOutTempRequest
-						telemetryBitmap |= 0x02; 
+						PeriodicService_Force(&tempService); 
 					}
 					if(frame.length == 1) {
 						// PacketOutPowerSetRate
-						cnt2rl = frame.payload[0]; 
-						cnt2val = cnt2rl; 
+						PeriodicService_SetInterval(&tempService, frame.payload[0]); 
 					}
+					break; 
 				}
-				// Environmental telemetry
-				if(frame.service == 2) {
+				case 2: { // Environmental sensor
 					if(frame.length == 0) {
 						// PacketOutEnvRequest
-						telemetryBitmap |= 0x04; 
+						PeriodicService_Force(&envService); 
 					}
 					if(frame.length == 1) {
 						// PacketOutPowerSetRate
-						cnt3rl = frame.payload[0]; 
-						cnt3val = cnt3rl; 
+						PeriodicService_SetInterval(&envService, frame.payload[0]); 
 					}
+					break; 
 				}
 			}
 		}
@@ -659,20 +691,11 @@ int main(void) {
 				// Logic: I2C periodic sampling
 				doSampling = 1; 
 				// Logic: Counter 1 Power telemetry
-				if(cnt1rl && ++cnt1val >= cnt1rl) {
-					cnt1val = 0; 
-					telemetryBitmap |= 0x01; 
-				}
+				PeriodicService_Tick(&powerService); 
 				// Logic: Counter 2 Temperature telemetry
-				if(cnt2rl && ++cnt2val >= cnt2rl) {
-					cnt2val = 0; 
-					telemetryBitmap |= 0x02; 
-				}
+				PeriodicService_Tick(&tempService); 
 				// Logic: Counter 3 Environmental telemetry
-				if(cnt3rl && ++cnt3val >= cnt3rl) {
-					cnt3val = 0; 
-					telemetryBitmap |= 0x04; 
-				}
+				PeriodicService_Tick(&envService); 
 				// .. more logic
 			}
 			// Logic: periodic flashing
@@ -687,7 +710,7 @@ int main(void) {
 		}
 		
 		// Telemetry writeback
-		if(telemetryBitmap & 0x01) {
+		if(PeriodicService_Serve(&powerService)) {
 			// PacketInPowerTelemetry
 			frame.service = 0; 
 			frame.length = 12; 
@@ -696,7 +719,7 @@ int main(void) {
 			Util_WriteFloat(&frame, 8, I2C_Telemetry.converterW); 
 			LFP_BlockingTx(&frame); 
 		}
-		if(telemetryBitmap & 0x02) {
+		if(PeriodicService_Serve(&tempService)) {
 			// PacketInTempTelemetry
 			frame.service = 1; 
 			frame.length = 20; 
@@ -704,7 +727,7 @@ int main(void) {
 			for(int i = 4; i < 20; i++) frame.payload[i] = 0xFF; 
 			LFP_BlockingTx(&frame); 
 		}
-		if(telemetryBitmap & 0x04) {
+		if(PeriodicService_Serve(&envService)) {
 			// PacketInEnvTelemetry
 			frame.service = 2; 
 			frame.length = 8; 
@@ -714,6 +737,7 @@ int main(void) {
 			}
 			else for(int i = 0; i < 8; i++) frame.payload[i] = 0xFF; 
 			LFP_BlockingTx(&frame); 
+			
 		}
 		
 		// Trigger sampling at the very end
