@@ -485,7 +485,8 @@ void IO_Servo_Write(int us) {
 #define SERVO_MAX_POSITION (127)
 void IO_Servo_Set_Pos(uint8_t pos_two_comp) {
     // Pos param is 2's complement stored in an unsigned byte
-    int8_t pos = (int8_t)pos_two_comp;
+    int8_t pos = 0;
+    memcpy(&pos, &pos_two_comp, sizeof pos);
 
     int us = SERVO_MIN_PULSE_WIDTH +
             (int)(((int)(pos - SERVO_MIN_POSITION) * (SERVO_MAX_PULSE_WIDTH - SERVO_MIN_PULSE_WIDTH)) /
