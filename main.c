@@ -437,11 +437,12 @@ void IO_HWInit(void) {
 	RCC->APBENR2 |= RCC_APBENR2_TIM14EN; 
 	TIM14->PSC = 64 - 1; // Resolution 1us
 	TIM14->ARR = 20000 - 1; // Frequency 50Hz
-	TIM14->CCR1 = TIM14->ARR; 
+	TIM14->CCR1 = TIM14->ARR;
 	TIM14->CCMR1 = 0x38; // PWM mode 2
 	TIM14->EGR = 0x1; 
 #define TIM14_START()	TIM14->CR1 = 0x1
 #define TIM14_STOP()	TIM14->CR1 = 0x9 // One pulse mode stops the counter after current cycle
+#define TIM14_ENABLED() TIM14->CR1 != 0x9
 #define TIM14_WR_PULSE(us) TIM14->CCR1 = 20000 - us // TODO: validate this
 }
 
@@ -462,7 +463,7 @@ void IO_LED2_Off(void) {
 }
 
 void IO_Servo_Start(void) {
-	// TODO: set a default pulse width?
+    // TODO: set a default pulse width?
 	TIM14_START(); 
 }
 
@@ -471,7 +472,26 @@ void IO_Servo_Stop(void) {
 }
 
 void IO_Servo_Write(int us) {
-	// TODO
+    if (!TIM14_ENABLED()) {
+        TIM14_START();
+    }
+
+    TIM14_WR_PULSE(us);
+}
+
+#define SERVO_MIN_PULSE_WIDTH (1000)
+#define SERVO_MAX_PULSE_WIDTH (2000)
+#define SERVO_MIN_POSITION (-128)
+#define SERVO_MAX_POSITION (127)
+void IO_Servo_Set_Pos(uint8_t pos_two_comp) {
+    // Pos param is 2's complement stored in an unsigned byte
+    int8_t pos = (int8_t)pos_two_comp;
+
+    int us = SERVO_MIN_PULSE_WIDTH +
+            (int)(((int)(pos - SERVO_MIN_POSITION) * (SERVO_MAX_PULSE_WIDTH - SERVO_MIN_PULSE_WIDTH)) /
+            (SERVO_MAX_POSITION - SERVO_MIN_POSITION));
+
+    IO_Servo_Write(us);
 }
 
 #undef LED1_ON
@@ -681,6 +701,16 @@ int main(void) {
 					}
 					break; 
 				}
+                case 3: { // Actuator
+                    if(frame.length == 0) {
+                        // PacketOutServoStop
+                        IO_Servo_Stop();
+                    }
+                    if(frame.length == 1) {
+                        // PacketOutServoSet
+                        IO_Servo_Set_Pos(frame.payload[0]);
+                    }
+                }
 			}
 		}
 		
