@@ -442,7 +442,6 @@ void IO_HWInit(void) {
 	TIM14->EGR = 0x1; 
 #define TIM14_START()	TIM14->CR1 = 0x1
 #define TIM14_STOP()	TIM14->CR1 = 0x9 // One pulse mode stops the counter after current cycle
-#define TIM14_ENABLED() TIM14->CR1 != 0x9
 #define TIM14_WR_PULSE(us) TIM14->CCR1 = 20000 - us // TODO: validate this
 }
 
@@ -472,10 +471,7 @@ void IO_Servo_Stop(void) {
 }
 
 void IO_Servo_Write(int us) {
-    if (!TIM14_ENABLED()) {
-        TIM14_START();
-    }
-
+    TIM14_START();
     TIM14_WR_PULSE(us);
 }
 
@@ -485,8 +481,7 @@ void IO_Servo_Write(int us) {
 #define SERVO_MAX_POSITION (127)
 void IO_Servo_Set_Pos(uint8_t pos_two_comp) {
     // Pos param is 2's complement stored in an unsigned byte
-    int8_t pos = 0;
-    memcpy(&pos, &pos_two_comp, sizeof pos);
+    int8_t pos = (int8_t)pos_two_comp;
 
     int us = SERVO_MIN_PULSE_WIDTH +
             (int)(((int)(pos - SERVO_MIN_POSITION) * (SERVO_MAX_PULSE_WIDTH - SERVO_MIN_PULSE_WIDTH)) /
