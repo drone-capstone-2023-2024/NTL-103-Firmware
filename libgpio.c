@@ -21,8 +21,9 @@ void IO_HWInit(void) {
 	TIM14->PSC = 64 - 1; // Resolution 1us
 	TIM14->ARR = 20000 - 1; // Frequency 50Hz
 	TIM14->CCR1 = TIM14->ARR;
-	TIM14->CCMR1 = 0x38; // PWM mode 2
+	TIM14->CCMR1 = 0x78; // PWM mode 2
 	TIM14->EGR = 0x1; 
+	TIM14->CCER = 0x1; 
 #define TIM14_START()	TIM14->CR1 = 0x1
 #define TIM14_STOP()	TIM14->CR1 = 0x9 // One pulse mode stops the counter after current cycle
 #define TIM14_WR_PULSE(us) TIM14->CCR1 = 20000 - us // TODO: validate this
