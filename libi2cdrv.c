@@ -13,10 +13,12 @@ void I2CDRV_CB_R2(int st) {
 	((void (*)(int, uint16_t))I2CDRV_Callback)(st, rd); 
 }
 
-void I2CDRV_CB_R3(int st) {
+void I2CDRV_CB_R6(int st) {
 	uint16_t rd1 = (uint16_t)I2C_Transaction.rdbuf[0] << 8 | I2C_Transaction.rdbuf[1]; 
-	uint8_t rd2 = I2C_Transaction.rdbuf[2]; 
-	((void (*)(int, uint16_t, uint8_t))I2CDRV_Callback)(st, rd1, rd2); 
+	uint8_t rd2  = I2C_Transaction.rdbuf[2]; 
+	uint16_t rd3 = (uint16_t)I2C_Transaction.rdbuf[3] << 8 | I2C_Transaction.rdbuf[4]; 
+	uint8_t rd4  = I2C_Transaction.rdbuf[5]; 
+	((void (*)(int, uint16_t, uint8_t, uint16_t, uint8_t))I2CDRV_Callback)(st, rd1, rd2, rd3, rd4); 
 }
 
 void I2CDRV_W3R0(uint8_t addr, uint8_t wr1, uint16_t wr2, void (*cb)(int st)) {
@@ -50,13 +52,13 @@ void I2CDRV_W2R0(uint8_t addr, uint16_t wr, void (*cb)(int st)) {
 	I2C_Start(); 
 }
 
-void I2CDRV_W2R3(uint8_t addr, uint16_t wr, void (*cb)(int st, uint16_t rd1, uint8_t rd2)) {
+void I2CDRV_W2R6(uint8_t addr, uint16_t wr, void (*cb)(int st, uint16_t rd1, uint8_t rd2, uint16_t rd3, uint8_t rd4)) {
 	I2C_Transaction.addr = addr; 
 	I2C_Transaction.wrlen = 2; 
 	I2C_Transaction.wrbuf[0] = wr >> 8; 
 	I2C_Transaction.wrbuf[1] = wr; 
-	I2C_Transaction.rdlen = 3; 
-	I2C_Callback = I2CDRV_CB_R3; 
+	I2C_Transaction.rdlen = 6; 
+	I2C_Callback = I2CDRV_CB_R6; 
 	I2CDRV_Callback = cb; 
 	I2C_Start(); 
 }

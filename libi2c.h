@@ -3,8 +3,8 @@
 
 #include <stdint.h>
 
-#define I2C_WR_MAX 6
-#define I2C_RD_MAX 4
+#define I2C_WR_MAX 4
+#define I2C_RD_MAX 6
 typedef struct {
 	uint8_t addr; 
 	uint8_t index; 

@@ -36,6 +36,7 @@ void I2CDEV_Act0(void);
 void I2CDEV_Act1(int st, uint16_t rd); 
 void I2CDEV_Act2(int st, uint16_t rd); 
 void I2CDEV_Act3(int st, uint16_t rd); 
+void I2CDEV_Act4(int st, uint16_t rd1, uint8_t rd2, uint16_t rd3, uint8_t rd4); 
 // I2C device readings
 void I2CDEV_Act0(void) {
 	// TMP1075N: read temperature
@@ -55,8 +56,18 @@ void I2CDEV_Act3(int st, uint16_t rd) {
 	if(!st) I2C_Telemetry.converterA = (float)(int16_t)rd * 6.41025641e-5; 
 	// TODO: power with power register
 	I2C_Telemetry.converterW = I2C_Telemetry.converterV * I2C_Telemetry.converterA; 
-	// TODO: SHT30 readings
-	if(I2C_Telemetry.extSensorPresent); 
+	// SHT30: Read periodic measurement
+	if(I2C_Telemetry.extSensorPresent) {
+		I2CDRV_W2R6(SHT30, 0xE000, I2CDEV_Act4); 
+	}
+}
+void I2CDEV_Act4(int st, uint16_t rd1, uint8_t rd2, uint16_t rd3, uint8_t rd4) {
+	if(!st) {
+		// TODO: implement CRC check
+		I2C_Telemetry.extSensorTemp = rd1 * 0.0026703288319219 - 45.0; // (val/65535) * 175 - 45
+		I2C_Telemetry.extSensorHumid = rd3 * 0.0015259021896696; // (val/65535) * 100
+	}
+	// Readout complete
 }
 
 void I2CDEV_Init(void) {
