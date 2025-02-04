@@ -26,7 +26,7 @@ void IO_HWInit(void) {
 	TIM14->CCER = 0x1; 
 #define TIM14_START()	TIM14->CR1 = 0x1
 #define TIM14_STOP()	TIM14->CR1 = 0x9 // One pulse mode stops the counter after current cycle
-#define TIM14_WR_PULSE(us) TIM14->CCR1 = 20000 - us // TODO: validate this
+#define TIM14_WR_PULSE(us) TIM14->CCR1 = 20000 - us
 }
 
 void IO_LED1_On(void) {

@@ -1,6 +1,6 @@
 #include "liblfp.h"
 
-uint8_t LFP_CrcTable[]; 
+const uint8_t LFP_CrcTable[]; 
 
 int LFP_Encode(const LFP_Frame_t * frame, uint8_t * stream, uint8_t * streamSize0) {
 	static uint8_t workaround_buffer[LFP_MAXBUF]; // This will work but ugly
@@ -131,7 +131,7 @@ int LFP_Rx(LFP_Frame_t * frame) {
 	return status; 
 }
 
-uint8_t LFP_CrcTable[] = {
+const uint8_t LFP_CrcTable[] = {
 	0x00, 0x1D, 0x3A, 0x27, 0x74, 0x69, 0x4E, 0x53, 
 	0xE8, 0xF5, 0xD2, 0xCF, 0x9C, 0x81, 0xA6, 0xBB, 
 	0xCD, 0xD0, 0xF7, 0xEA, 0xB9, 0xA4, 0x83, 0x9E, 
